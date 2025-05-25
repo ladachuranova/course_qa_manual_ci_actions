@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Добавляем возможность запускать workflow вручную через UI
+  workflow_dispatch:
     inputs:
       branch:
         description: 'Select branch to deploy'
@@ -15,6 +15,15 @@ on:
           - main
           - develop
           - feature-branch
+      host:
+        description: 'Select the PythonAnywhere host'
+        required: true
+        default: 'production'
+        type: string
+        options:
+          - production
+          - staging
+          - dev
 
 jobs:
   test:
@@ -68,8 +77,15 @@ jobs:
         env:
           PYTHONANYWHERE_API_TOKEN: ${{ secrets.PYTHONANYWHERE_API_TOKEN }}
           PYTHONANYWHERE_USERNAME: ${{ secrets.PYTHONANYWHERE_USERNAME }}
+          HOST: ${{ github.event.inputs.host }}  # Используем выбранный хост
         run: |
-          UPLOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/files/path/home/$PYTHONANYWHERE_USERNAME/weather_proj/project_archive.zip"
+          if [ "$HOST" == "production" ]; then
+            UPLOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/files/path/home/$PYTHONANYWHERE_USERNAME/weather_proj/project_archive.zip"
+          elif [ "$HOST" == "staging" ]; then
+            UPLOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/files/path/home/$PYTHONANYWHERE_USERNAME/staging_proj/project_archive.zip"
+          else
+            UPLOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/files/path/home/$PYTHONANYWHERE_USERNAME/dev_proj/project_archive.zip"
+          fi
           echo "Uploading project_archive.zip to $UPLOAD_URL..."
           curl -s -w "\nHTTP_CODE:%{http_code}" \
             -X POST \
@@ -82,14 +98,22 @@ jobs:
           PYTHONANYWHERE_API_TOKEN: ${{ secrets.PYTHONANYWHERE_API_TOKEN }}
           PYTHONANYWHERE_USERNAME: ${{ secrets.PYTHONANYWHERE_USERNAME }}
           CONSOLE_ID: ${{ secrets.CONSOLE_ID }}
+          HOST: ${{ github.event.inputs.host }}  # Используем выбранный хост
         run: |
+          if [ "$HOST" == "production" ]; then
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/weather_proj"
+          elif [ "$HOST" == "staging" ]; then
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/staging_proj"
+          else
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/dev_proj"
+          fi
           UNZIP_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/consoles/$CONSOLE_ID/send_input/"
-          echo "Extracting archive..."
+          echo "Extracting archive on $PROJECT_PATH..."
           curl -s -w "\nHTTP_CODE:%{http_code}" \
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"input":"unzip -o /home/'"$PYTHONANYWHERE_USERNAME"'/weather_proj/project_archive.zip -d /home/'"$PYTHONANYWHERE_USERNAME"'/weather_proj/\n"}' \
+            -d '{"input":"unzip -o $PROJECT_PATH/project_archive.zip -d $PROJECT_PATH/\n"}' \
             "$UNZIP_URL"
 
       - name: Apply migrations
@@ -97,23 +121,38 @@ jobs:
           PYTHONANYWHERE_API_TOKEN: ${{ secrets.PYTHONANYWHERE_API_TOKEN }}
           PYTHONANYWHERE_USERNAME: ${{ secrets.PYTHONANYWHERE_USERNAME }}
           CONSOLE_ID: ${{ secrets.CONSOLE_ID }}
+          HOST: ${{ github.event.inputs.host }}  # Используем выбранный хост
         run: |
+          if [ "$HOST" == "production" ]; then
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/weather_proj"
+          elif [ "$HOST" == "staging" ]; then
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/staging_proj"
+          else
+            PROJECT_PATH="/home/$PYTHONANYWHERE_USERNAME/dev_proj"
+          fi
           MIGRATE_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/consoles/$CONSOLE_ID/send_input/"
-          echo "Applying migrations..."
+          echo "Applying migrations on $PROJECT_PATH..."
           curl -s -w "\nHTTP_CODE:%{http_code}" \
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"input":"cd /home/'"$PYTHONANYWHERE_USERNAME"'/weather_proj && python manage.py migrate\n"}' \
+            -d '{"input":"cd $PROJECT_PATH && python manage.py migrate\n"}' \
             "$MIGRATE_URL"
 
       - name: Reload web application
         env:
           PYTHONANYWHERE_API_TOKEN: ${{ secrets.PYTHONANYWHERE_API_TOKEN }}
           PYTHONANYWHERE_USERNAME: ${{ secrets.PYTHONANYWHERE_USERNAME }}
+          HOST: ${{ github.event.inputs.host }}  # Используем выбранный хост
         run: |
-          RELOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/webapps/$PYTHONANYWHERE_USERNAME.pythonanywhere.com/reload/"
-          echo "Reloading web application..."
+          if [ "$HOST" == "production" ]; then
+            RELOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/webapps/$PYTHONANYWHERE_USERNAME.pythonanywhere.com/reload/"
+          elif [ "$HOST" == "staging" ]; then
+            RELOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/webapps/$PYTHONANYWHERE_USERNAME.staging.pythonanywhere.com/reload/"
+          else
+            RELOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/webapps/$PYTHONANYWHERE_USERNAME.dev.pythonanywhere.com/reload/"
+          fi
+          echo "Reloading web application on $HOST..."
           curl -s -w "\nHTTP_CODE:%{http_code}" \
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
