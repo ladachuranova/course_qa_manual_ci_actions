@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Добавляем возможность запускать workflow вручную через UI
+    inputs:
+      branch:
+        description: 'Select branch to deploy'
+        required: true
+        default: 'main'
+        type: string
+        options:
+          - main
+          - develop
+          - feature-branch
 
 jobs:
   test:
@@ -13,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}  # Используем выбранную ветку
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,21 +38,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: |
-          python manage.py test > result.log || echo "Tests failed"
-          
-      - name: Generate Allure report
-        run: |
-          pip install allure-pytest
-          allure generate result.log --clean -o allure-report
+        run: python manage.py test
 
-      - name: Upload Allure report to GitHub pages (optional)
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          folder: allure-report
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
   deploy:
     name: Deploy to PythonAnywhere
     runs-on: ubuntu-latest
@@ -48,6 +48,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}  # Используем выбранную ветку
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -116,10 +118,3 @@ jobs:
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
             "$RELOAD_URL"
-
-      - name: Send Slack notification
-        uses: slackapi/slack-github-action@v1
-        with:
-          slack-token: ${{ secrets.SLACK_TOKEN }}
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          text: "Deployment completed successfully!"
