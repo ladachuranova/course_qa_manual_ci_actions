@@ -113,7 +113,7 @@ jobs:
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"input":"unzip -o $PROJECT_PATH/project_archive.zip -d $PROJECT_PATH/\n"}' \
+            -d "{\"input\":\"unzip -o $PROJECT_PATH/project_archive.zip -d $PROJECT_PATH/\n\"}" \
             "$UNZIP_URL"
 
       - name: Apply migrations
