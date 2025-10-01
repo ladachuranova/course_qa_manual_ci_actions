@@ -136,7 +136,7 @@ jobs:
             -X POST \
             -H "Authorization: Token $PYTHONANYWHERE_API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"input":"cd $PROJECT_PATH && python manage.py migrate\n"}' \
+            -d "{\"input\":\"cd $PROJECT_PATH && python manage.py migrate\n\"}" \
             "$MIGRATE_URL"
 
       - name: Reload web application
