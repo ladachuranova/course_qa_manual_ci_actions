@@ -77,7 +77,7 @@ jobs:
         env:
           PYTHONANYWHERE_API_TOKEN: ${{ secrets.PYTHONANYWHERE_API_TOKEN }}
           PYTHONANYWHERE_USERNAME: ${{ secrets.PYTHONANYWHERE_USERNAME }}
-          HOST: ${{ github.event.inputs.host || 'production' }}  # Используем выбранный хост
+          HOST: ${{ github.event.inputs.host }}  # Используем выбранный хост
         run: |
           if [ "$HOST" == "production" ]; then
             UPLOAD_URL="https://www.pythonanywhere.com/api/v0/user/$PYTHONANYWHERE_USERNAME/files/path/home/$PYTHONANYWHERE_USERNAME/weather_proj/project_archive.zip"
